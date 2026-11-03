@@ -128,6 +128,7 @@ Several frank_chat instances, jam and katzenqt can share one daemon. Then start 
 | `--name NAME` | your display name, which others see; remembered after the first run |
 | `--log FILE` | the log file, by default `frank_chat.log` in the state directory |
 | `--offline` | show the saved state, without a daemon |
+| `--wire-version 3\|4` | what frank_chat writes and mints: 3, the map forms, or 4 (the default), the compact arrays; it reads both |
 
 `FRANK_CHAT_LOG` sets the log level: `critical`, `error`, `warning`, `notice`, `info` (the default) or
 `debug`. frank_chat is dark by default; `PAW_THEME=light` gives the light theme, and
