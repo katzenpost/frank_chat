@@ -220,7 +220,7 @@ def selection : TestM Unit := do
 
 def origin : TestM Unit := do
   let sent ← IO.mkRef #[]
-  let s : State := { me := "alice", chats := [{ name := "g", joining := some (.awaiting "CODE" .empty .empty .empty) }] }
+  let s : State := { me := "alice", chats := [{ name := "g", joining := some (.awaiting "CODE" .empty .empty .empty true) }] }
   let r ← state (begin sent) s
   check "a state from the shell starts nothing" (r.outs.all fun | .request (.present _) | .request (.access ..) => true | _ => false)
   for (what, m) in [("New group", App.Msg.ask .newGroup), ("Invite", .ask .invite), ("Leave", .ask .leave)] do
@@ -329,7 +329,7 @@ def renames : TestM Unit := do
 
 def copy : TestM Unit := do
   let sent ← IO.mkRef #[]
-  let s : State := { me := "bob", chats := [{ name := "g", joining := some (.awaiting "Q09ERQ==" .empty .empty .empty) }] }
+  let s : State := { me := "bob", chats := [{ name := "g", joining := some (.awaiting "Q09ERQ==" .empty .empty .empty true) }] }
   let r ← state (begin sent) s
   check "the voucher code is shown" ((textsOf r "voucher-code") == ["Q09ERQ=="])
   let r ← click r "copy-voucher"

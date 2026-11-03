@@ -34,7 +34,7 @@ def shots (dir : System.FilePath) : IO Unit := do
   write start (dir / "empty.png")
   let (rt, _) := start.results [App.Msg.state { me := "alice", chats := [c, { name := "other" }] }] 100
   write rt (dir / "chat.png")
-  let joining : Chat := { name := "theirs", joining := some (.awaiting "SGVsbG8gdm91Y2hlciBjb2RlIHRoYXQgaXMgcXVpdGUgbG9uZyBpbmRlZWQ=" .empty .empty .empty) }
+  let joining : Chat := { name := "theirs", joining := some (.awaiting "SGVsbG8gdm91Y2hlciBjb2RlIHRoYXQgaXMgcXVpdGUgbG9uZyBpbmRlZWQ=" .empty .empty .empty true) }
   let (rt, _) := start.results [App.Msg.state { me := "alice", chats := [joining] }] 100
   write rt (dir / "joining.png")
   let r ← AppTests.state (AppTests.begin sent) { me := "alice", chats := [AppTests.chatWith "g" [AppTests.line 0 "a notice"]] }
@@ -112,7 +112,7 @@ def readmeState : IO State := do
   let work := AppTests.chatWith "work" [AppTests.line 0 "a new group: Invite, with a member's voucher code, adds them",
     AppTests.line 1 "added ~dana: they now read everything said in this group",
     AppTests.line 2 "added ~eli: they now read everything said in this group"]
-  let book : Chat := { name := "book club", joining := some (.awaiting "" .empty .empty .empty) }
+  let book : Chat := { name := "book club", joining := some (.awaiting "" .empty .empty .empty true) }
   return { me := "alice", chats := [friends, work, book] }
 
 /-- Alice's saved state of the README's groups, for a picture of frank_chat on a phone. -/
