@@ -29,7 +29,7 @@ def serialized (b : Backend) : IO Backend := do
     writeBox := fun wc i p => one (b.writeBox wc i p)
     readBox := fun rc i => one (b.readBox rc i)
     nextIndex := fun i => one (b.nextIndex i)
-    voucherMint := fun wc n => one (b.voucherMint wc n)
+    voucherMint := fun wc n l => one (b.voucherMint wc n l)
     voucherDeriveStream := fun v => one (b.voucherDeriveStream v)
     voucherInduct := fun v p w => one (b.voucherInduct v p w)
     voucherOpen := fun s r w => one (b.voucherOpen s r w)

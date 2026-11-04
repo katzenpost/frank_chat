@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 import Paw.Linux
 import FrankChat.App
 import FrankChat.Presentation
+import FrankChat.Args
 import GroupChatClient.LogPane
 import GroupChatClient.GroupChatKatzenqt1.Daemon
 import GroupChatClient.GroupChatKatzenqt1.Shell
@@ -17,31 +18,6 @@ A desktop group chat over the Katzenpost mixnet that speaks katzenqt's group cha
 open FrankChat Logger
 open GroupChatClient.GroupChatKatzenqt1.Persist
 open GroupChatClient GroupChatClient.GroupChatKatzenqt1
-
-structure Config where
-  /-- The daemon's socket: a path, `@name` for an abstract one, or `HOST:PORT` over TCP. On Android
-  the daemon is another app's, which apps reach over TCP on the device. -/
-  daemon : String := if Paw.Linux.onAndroid then "127.0.0.1:64331" else "@katzenpost"
-  stateDir : Option System.FilePath := none
-  logFile : Option System.FilePath := none
-  name : Option String := none
-  /-- Show the saved state, without a daemon. -/
-  offline : Bool := false
-
-def usage : String :=
-  "usage: frank_chat [--daemon @katzenpost | PATH | HOST:PORT] [--state DIR] [--name NAME] [--log FILE] [--offline]
-The daemon is @katzenpost by default, and on Android 127.0.0.1:64331.
-The state directory is $XDG_DATA_HOME/frank_chat/$FRANK_CHAT_STATE (default: default).
-The log level is FRANK_CHAT_LOG: critical, error, warning, notice, info (the default) or debug."
-
-def parseArgs : Config → List String → Except String Config
-  | c, [] => pure c
-  | c, "--daemon" :: d :: rest => parseArgs { c with daemon := d } rest
-  | c, "--state" :: d :: rest => parseArgs { c with stateDir := some d } rest
-  | c, "--log" :: f :: rest => parseArgs { c with logFile := some f } rest
-  | c, "--name" :: n :: rest => parseArgs { c with name := some n } rest
-  | c, "--offline" :: rest => parseArgs { c with offline := true } rest
-  | _, a :: _ => throw s!"unknown argument: {a}"
 
 def defaultStateDir : IO System.FilePath := do
   let base ← match ← IO.getEnv "XDG_DATA_HOME" with
@@ -160,7 +136,7 @@ where
   let client ← connect cfg.daemon
   let backend := Daemon.backend client
   log.notice s!"started as {me}, state in {dir}"
-  let (core, resumed) := resume presentation state (← backend.maxPlaintext) (← wallMs)
+  let (core, resumed) := resume presentation state (← backend.maxPlaintext) (← wallMs) cfg.wireVersion
   let stop ← IO.mkRef false
   let inbox ← Std.CloseableChannel.new (α := Msg)
   let post (m : Msg) : IO Unit := discard (inbox.send m)
