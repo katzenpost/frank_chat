@@ -52,14 +52,14 @@ yourself, with what Building lists and Rust 1.99.0 (`rustup toolchain install 1.
 
     git clone https://github.com/katzenpost/frank_chat
     cd frank_chat
-    git checkout v0.2.0
+    git checkout v0.4.2
     FROM_SOURCE=1 make release
-    curl -fsSL https://github.com/katzenpost/frank_chat/releases/download/v0.2.0/SHA256SUMS | grep linux | diff - dist/SHA256SUMS
+    curl -fsSL https://github.com/katzenpost/frank_chat/releases/download/v0.4.2/SHA256SUMS | grep linux | diff - dist/SHA256SUMS
 
 No output from `diff` means your build and the release match. `FROM_SOURCE=1` skips
 `lake exe cache get` and builds Mathlib too, so nothing you run was compiled by someone else; it
 takes a few hours. Without it, `make release` is quicker and trusts
-Mathlib's downloaded files. Either way, `gh attestation verify frank_chat-v0.2.0-x86_64-linux --repo
+Mathlib's downloaded files. Either way, `gh attestation verify frank_chat-v0.4.2-x86_64-linux --repo
 katzenpost/frank_chat` checks that a downloaded binary was built by this repository's release workflow.
 
 The APK is reproducible before it is signed: `make release-apk`, with what [Android](#android)

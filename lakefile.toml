@@ -1,5 +1,5 @@
 name = "frank_chat"
-version = "0.4.1"
+version = "0.4.2"
 description = "A desktop group chat over the Katzenpost mixnet, in Lean, on Paw and cryptlib"
 keywords = ["chat", "gui", "mixnet", "katzenpost", "privacy"]
 license = "AGPL-3.0-only"
