@@ -22,10 +22,28 @@ version="$(git describe --tags --always)"
 code=$(echo "$version" | sed -n 's/^v\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*/\1 \2 \3/p' |
 	awk '{ print $1 * 10000 + $2 * 100 + $3 }')
 
+# Paw stores libmain.so uncompressed, for Android to map it from the APK. Compressed, the APK is
+# far smaller, and Android unpacks the library once, at install, which needs extractNativeLibs.
+lake exe cache get
+paw=$PWD/.lake/packages/paw
+tmp=$(mktemp -d)
+trap 'git -C "$paw" checkout -- android/AndroidManifest.xml; rm -rf "$tmp"' EXIT
+sed -i 's/android:extractNativeLibs="false"/android:extractNativeLibs="true"/' "$paw/android/AndroidManifest.xml"
+grep -q 'android:extractNativeLibs="true"' "$paw/android/AndroidManifest.xml"
+
 KEYSTORE=none VERSION_NAME="${version#v}" VERSION_CODE="${code:-1}" make apk ANDROID_ABI=arm64-v8a
 
+# The library without its symbol table, which Paw keeps, put back compressed.
+apk=$PWD/.lake/android/frank_chat-arm64-v8a-unsigned.apk
+lib=lib/arm64-v8a/libmain.so
+(cd "$tmp" && unzip -q "$apk" "$lib")
+"$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-all "$tmp/$lib"
+touch -d "@$SOURCE_DATE_EPOCH" "$tmp/$lib"
+zip -q -d "$apk" "$lib"
+(cd "$tmp" && zip -q -X -9 "$apk" "$lib")
+
 mkdir -p "$out"
-cp .lake/android/frank_chat-arm64-v8a-unsigned.apk "$out/frank_chat-$version-arm64-unsigned.apk"
+"$BUILD_TOOLS/zipalign" -f -P 16 4 "$apk" "$out/frank_chat-$version-arm64-unsigned.apk"
 cd "$out"
 sha256sum "frank_chat-$version-arm64-unsigned.apk" > UNSIGNED-SHA256SUMS
 cat UNSIGNED-SHA256SUMS
