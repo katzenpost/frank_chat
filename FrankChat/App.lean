@@ -29,7 +29,8 @@ frank_chat, not the sender, decides what each part of the window says:
 - A file is read only once the user chose it and clicked Send, and one received is written out only
   where they chose to save it; a picture received is shown from frank_chat's own copy.
 - The microphone records only while the user holds the Hold to talk button or Ctrl+Space, and what
-  it recorded is sent only once they click Send. -/
+  it recorded is sent only once they click Send. It listens for a voucher only after a click on
+  Listen, and what it heard goes only into the Invite dialog's field. -/
 
 namespace FrankChat.App
 
@@ -72,6 +73,8 @@ structure Dialog where
   entries : List Disk.Entry := []
   /-- The line whose file it is about. -/
   line : Option Nat := none
+  /-- What Listen is doing: listening, what it heard, or why not. -/
+  heard : String := ""
   deriving BEq
 
 /-- A voice note being recorded, or recorded and not yet sent, for a group. -/
@@ -160,6 +163,12 @@ inductive Msg
   | back
   /-- The menu of a group's actions, on a phone, shown or hidden. -/
   | menu (shown : Bool)
+  /-- Play the voucher code shown by sound. -/
+  | sendSound
+  | soundSent (r : Except String Unit)
+  /-- Listen for a voucher code by sound, into the Invite dialog's field; again, stop. -/
+  | listen
+  | heard (listen : Nat) (r : Except String (Option ByteArray))
 
 structure Model where
   state : State
@@ -203,6 +212,10 @@ structure Model where
   /-- A phone's narrow window: one pane at a time, the groups or a conversation. -/
   phone : Bool := false
   menu : Bool := false
+  sendingSound : Bool := false
+  /-- The Listen under way, by its number, and how many there have been. -/
+  listening : Option Nat := none
+  listens : Nat := 0
   deriving Inhabited
 
 instance : BEq Model where
@@ -212,7 +225,8 @@ instance : BEq Model where
     a.inner == b.inner && a.network == b.network && a.dark == b.dark && a.zone == b.zone &&
     a.lastDir == b.lastDir && a.pictures == b.pictures && a.voice == b.voice &&
     a.playing == b.playing && a.clock == b.clock && a.soundOff == b.soundOff &&
-    a.phone == b.phone && a.menu == b.menu
+    a.phone == b.phone && a.menu == b.menu && a.sendingSound == b.sendingSound &&
+    a.listening == b.listening && a.listens == b.listens
 
 namespace Model
 
@@ -324,6 +338,12 @@ def cancelRecording {o : Origin} (audio : Voice.Audio) : UpdateM Model Msg caps 
 
 def play {o : Origin} (audio : Voice.Audio) (path : String) : UpdateM Model Msg caps o Unit :=
   emit (.task (return .playStarted path (← attempt (audio.play path))) (by decide))
+
+/-- Stop listening for a voucher, if Listen is. -/
+def stopListening {o : Origin} (audio : Voice.Audio) : UpdateM Model Msg caps o Unit := do
+  let some n := (← get).1.listening | return
+  modify fun (m, cs) => ({ m with listening := none, dialog := m.dialog.map ({ · with heard := "" }) }, cs)
+  emit (.task (return .audioDone (← attempt (audio.vouchers.stopListen n))) (by decide))
 
 /-- Whether the sound system is to be polled: while recording or playing. -/
 def busy (m : Model) : Bool :=
@@ -465,10 +485,13 @@ def update (post : GroupChatKatzenqt1.Msg → IO Unit) (audio : Voice.Audio) :
     if a.msg.isNone then
       modify fun (m, cs) => ({ m with dialog := some { d with note := a.note } }, cs)
     else
+      stopListening audio
       modify fun (m, cs) => ({ m with dialog := none }, cs)
       if let some (.rename old new) := a.msg then modify fun (m, cs) => (m.rename old new, cs)
       perform post a
-  | _, .dismiss => modify fun (m, cs) => ({ m with dialog := none }, cs)
+  | _, .dismiss => do
+    stopListening audio
+    modify fun (m, cs) => ({ m with dialog := none }, cs)
   | .user d, .copyVoucher => do
     let some code := (← get).1.current.bind Model.voucher? | return
     let e := Effect.setClipboard "copy-voucher" (SafeText.filter code)
@@ -573,6 +596,37 @@ def update (post : GroupChatKatzenqt1.Msg → IO Unit) (audio : Voice.Audio) :
   | _, .audioDone r => match r with
     | .ok () => pure ()
     | .error e => note (Display.logLine e)
+  | .user _, .sendSound => do
+    let m := (← get).1
+    let some v := (m.current.bind Model.voucher?).bind Voucher.bytes? | return
+    if m.sendingSound then return
+    modify fun (m, cs) => ({ m with sendingSound := true }, cs)
+    emit (.task (return .soundSent (← attempt (audio.vouchers.send v))) (by decide))
+  | .other, .sendSound => pure ()
+  | _, .soundSent r => do
+    modify fun (m, cs) => ({ m with sendingSound := false }, cs)
+    if let .error e := r then note (Display.logLine s!"couldn't send it by sound: {e}")
+  | .user _, .listen => do
+    let m := (← get).1
+    let some d := m.dialog | return
+    if d.kind != .invite then return
+    if m.listening.isSome then stopListening audio; return
+    let n := m.listens + 1
+    let d := { d with heard := "Listening…", note := "" }
+    modify fun (m, cs) => ({ m with listening := some n, listens := n, dialog := some d }, cs)
+    emit (.task (return .heard n (← attempt (audio.vouchers.listen n))) (by decide))
+  | .other, .listen => pure ()
+  | _, .heard n r => do
+    let m := (← get).1
+    let some d := m.dialog | return
+    if m.listening != some n then return
+    let heard (v : ByteArray) :=
+      s!"Heard a voucher code, check {Voucher.check v}. If their screen shows the same, choose Invite."
+    let d := match r with
+      | .ok (some v) => { d with field := Voucher.code v, heard := heard v }
+      | .ok none => { d with heard := "" }
+      | .error e => { d with heard := s!"Not heard: {e}. Hold the devices closer and choose Listen again." }
+    modify fun (m, cs) => ({ m with listening := none, dialog := some d }, cs)
 
 /-! ## The view
 
@@ -727,8 +781,8 @@ def empty : Node Msg :=
 
 def sendCaption (c : Chat) (draft : String) : String :=
   let n := (draft.splitOn "\n").length
-  let to := (Display.name c.name).text
-  if n > 1 then s!"Send {n} lines to {to}" else s!"Send to {to}"
+  let group := (Display.name c.name).text
+  if n > 1 then s!"Send {n} lines to {group}" else s!"Send to {group}"
 
 /-- The voice note being recorded in the group, or recorded and not yet sent. -/
 def voiceBar (m : Model) (c : Chat) : Option (Node Msg) :=
@@ -769,12 +823,18 @@ def conversationPane (m : Model) (c : Chat) : Node Msg :=
           (.menu false) "menu"] (px 6)
     else Ui.row ([title, Ui.spacer] ++ groupActions ++ [Ui.width (px 12) Ui.spacer] ++ actions) (px 6)
   let voucher := (Model.voucher? c).toList.map fun code =>
+    let sound := (Voucher.bytes? code).toList.flatMap fun v =>
+      [Ui.enabled (m.soundOff.isNone && !m.sendingSound)
+        (Ui.button (if m.sendingSound then "Sending…" else "Send by sound") .sendSound "send-sound"),
+       Ui.caption (SafeText.trusted s!"check {Voucher.check v}") "voucher-check"]
+    let qr := if code.isEmpty then [] else [Ui.lazy ({ code, scale := 4 } : Voucher.Qr) Voucher.qrView (key := some "voucher-qr")]
     Ui.pad (px 12) <| Ui.panel (Ui.col [
       Ui.heading "Your voucher code",
-      Ui.label "Give it to a member of the group, who adds you with Invite. It is also in the state directory."
+      Ui.label ("Give it to a member of the group, who adds you with Invite: they can scan the QR code, " ++
+        "or choose Listen while you choose Send by sound. It is also in the state directory.")
         (maxLines := 3) (tone := .muted),
-      Ui.row [Ui.text (Display.text code) (maxLines := 6) (key := "voucher-code"), Ui.spacer,
-        Ui.mainButton "Copy" .copyVoucher "copy-voucher"] (px 12)] (px 6))
+      Ui.row (qr ++ [Ui.col [Ui.text (Display.text code) (maxLines := 6) (key := "voucher-code"),
+        Ui.row ([Ui.mainButton "Copy" .copyVoucher "copy-voucher"] ++ sound) (px 6)] (px 12)]) (px 12)] (px 6))
   let talk := Ui.enabled (joined && m.soundOff.isNone && (m.voice == .idle || m.voice.chat? == some c.name))
     (Node.leaf (Voice.holdButton (SafeText.trusted "Hold to talk") .holdStart .holdEnd
       (match m.voice with | .recording .. | .starting .. => true | _ => false)) "talk")
@@ -847,9 +907,15 @@ def dialogView (m : Model) (d : Dialog) : Node Msg :=
   | .join => body "Join a group"
       [Ui.paragraph ("Name it as you will know it here. A voucher code will appear: give it to a " ++
         "member of the group, who adds you with Invite."), field "its name here", ownName] "Join" .main
-  | .invite => body s!"Invite to {group}"
-      [Ui.paragraph s!"Whoever holds this code will read everything said in {group} from now on.",
-        field "voucher code"] "Invite" .main
+  | .invite =>
+    let listen := Ui.enabled m.soundOff.isNone
+      (Ui.button (if m.listening.isSome then "Stop" else "Listen") .listen "listen")
+    let heard := if d.heard.isEmpty then [] else [Ui.text (Display.text d.heard) (maxLines := 3) (key := "heard")]
+    body s!"Invite to {group}"
+      ([Ui.paragraph s!"Whoever holds this code will read everything said in {group} from now on.",
+        field "voucher code",
+        Ui.row [listen, Ui.label "while their device sends it by sound, or paste it above"
+          (maxLines := 2) (tone := .muted)] (px 6)] ++ heard) "Invite" .main
   | .remove =>
     let others := ((m.state.chat? (d.chat.getD "")).map (Display.members m.state.me ·)).getD [] |>.drop 1
     let hexes := others.map (Display.hex ·.key)

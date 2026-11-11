@@ -7,12 +7,14 @@ import Paw
 import RusticAudio
 import Cryptlib.Primitives.Hash.Sha2
 import FrankChat.Display
+import FrankChat.Sound
 
 /-! # Voice notes
 
 Recording a voice note while a button or Ctrl+Space is held, and playing voice notes, through
-Rustic Audio. A voice note goes to the group as a file `<sha256>.opus` of type `audio/opus`, as
-katzenqt names them, so that its name tells nothing of when or by whom it was recorded. -/
+Rustic Audio, and voucher codes sent and heard by sound. A voice note goes to the group as a file
+`<sha256>.opus` of type `audio/opus`, as katzenqt names them, so that its name tells nothing of
+when or by whom it was recorded. -/
 
 namespace FrankChat.Voice
 
@@ -28,6 +30,7 @@ structure Audio where
   stopPlay : IO Unit
   playing : IO Bool
   error : IO (Option String)
+  vouchers : Sound.Vouchers
   /-- Why there is no sound, when there is none. -/
   off : Option String := none
 
@@ -39,10 +42,11 @@ def Audio.silent (why : String) : Audio where
   stopPlay := pure ()
   playing := pure false
   error := pure none
+  vouchers := .silent why
   off := some why
 
 /-- The sound system of an engine, recording only once `mic` says the microphone may be used. -/
-def Audio.engine (e : RusticAudio.Engine) (mic : IO Bool := pure true) : Audio where
+def Audio.engine (e : RusticAudio.Engine) (vouchers : Sound.Vouchers) (mic : IO Bool := pure true) : Audio where
   start := do
     unless ← mic do throw (IO.userError "allow frank_chat the microphone, then hold to talk again")
     discard <| e.startCapture (some "voice-note")
@@ -52,6 +56,7 @@ def Audio.engine (e : RusticAudio.Engine) (mic : IO Bool := pure true) : Audio w
   stopPlay := e.stopPlayback
   playing := e.isPlaying
   error := e.takePlaybackError
+  vouchers
 
 /-- The sound system, with drafts kept in `dir`, and `mic` saying whether the microphone may be
 used; or none, and why. -/
@@ -61,7 +66,8 @@ def Audio.open (dir : System.FilePath) (mic : IO Bool := pure true) : IO Audio :
     -- A draft not sent before frank_chat stopped is not kept.
     if ← dir.pathExists then IO.FS.removeDirAll dir
     IO.FS.createDirAll dir
-    return .engine (← RusticAudio.Engine.new dir.toString) mic
+    let e ← RusticAudio.Engine.new dir.toString
+    return .engine e (← Sound.Vouchers.over e mic) mic
   catch e => return .silent s!"no sound: {e}"
 
 /-- A recording shorter than this is taken for a slip, and thrown away. -/

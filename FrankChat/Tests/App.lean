@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 import FrankChat.App
 import GroupChatClient.GroupChatKatzenqt1.Shell
 import FrankChat.Tests.Display
+import FrankChat.Tests.Drivers
 
 /-! # The window
 
@@ -39,6 +40,9 @@ structure Sound where
 
 initialize sound : IO.Ref Sound ← IO.mkRef {}
 
+/-- The air between the speaker and the microphone of the fake sound system. -/
+initialize air : Drivers.Loopback ← Drivers.Loopback.new
+
 def drafts : System.FilePath := testDir / "state" / "audio" / "drafts"
 
 def fakeAudio : Voice.Audio where
@@ -60,6 +64,8 @@ def fakeAudio : Voice.Audio where
   stopPlay := sound.modify fun s => { s with playing := none }
   playing := return (← sound.get).playing.isSome
   error := pure none
+  -- Listening ends after 4 s of the loopback's silence, not 15.
+  vouchers := { send := Sound.send air, listen := fun _ => Sound.listen air (pure false) 4000, stopListen := fun _ => pure () }
 
 def mkApp (sent : Sent) (phone : Bool := false) (me : String := "alice") : Paw.App App.caps :=
   let home := (testDir / "home").toString

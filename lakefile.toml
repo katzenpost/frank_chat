@@ -37,7 +37,19 @@ rev = "001196f63f168f5fe82703584d934be682ea8b2f"
 [[require]]
 name = "rustic_audio_lean"
 git = "https://github.com/katzenpost/rustic_audio_lean.git"
-rev = "v0.2.0"
+# katzenpost/rustic_audio_lean#4: raw samples, for ggwave.
+rev = "e91452fd65a05ba567766410daa735f058ad339d"
+
+[[require]]
+name = "qrcode"
+git = "https://github.com/katzenpost/qrcode-lean.git"
+rev = "ba0231d23ce193d7230cfdb0d5e9eb81e27f5cf2"
+
+[[require]]
+name = "ggwave"
+git = "https://github.com/katzenpost/ggwave-lean.git"
+# katzenpost/ggwave-lean#1.
+rev = "86a3310e45c17e56f0179512ead7fc5b8af17f0d"
 
 # Last, so that its pin wins over the older ones its dependents carry.
 [[require]]
