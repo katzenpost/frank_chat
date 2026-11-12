@@ -141,10 +141,12 @@ else's. There are no accounts and no servers.
 
 1. Alice clicks **New group** and names it.
 2. Sam clicks **Join a group** and names it as it will be known on his screen. frank_chat mints a
-   voucher, and its code appears at the top of the conversation, with a **Copy** button. It is
-   also written to `voucher-NAME.txt` in Sam's state directory. Sam gives Alice the code out of
-   band.
-3. Alice selects the group, clicks **Invite**, and pastes the code. Whoever holds a code reads
+   voucher, and its code appears at the top of the conversation, as text and as a QR code, with
+   **Copy** and **Send by sound**. It is also written to `voucher-NAME.txt` in Sam's state
+   directory. Sam gives Alice the code out of band.
+3. Alice selects the group, clicks **Invite**, and pastes the code, or clicks **Listen** while
+   Sam clicks **Send by sound** nearby; both screens then show the same four check digits. The
+   QR code and the sound are the ones hushphone and the T-Deck use. Whoever holds a code reads
    everything said in the group from then on, so she takes it only from the person she means to
    add.
 4. A few minutes later Alice sees `— added ~sam`, and Sam `— joined the group`.

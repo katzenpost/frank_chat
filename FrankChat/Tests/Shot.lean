@@ -34,9 +34,17 @@ def shots (dir : System.FilePath) : IO Unit := do
   write start (dir / "empty.png")
   let (rt, _) := start.results [App.Msg.state { me := "alice", chats := [c, { name := "other" }] }] 100
   write rt (dir / "chat.png")
-  let joining : Chat := { name := "theirs", joining := some (.awaiting "SGVsbG8gdm91Y2hlciBjb2RlIHRoYXQgaXMgcXVpdGUgbG9uZyBpbmRlZWQ=" .empty .empty .empty true) }
+  let joining : Chat := { name := "theirs", joining := some (.awaiting "8so/D+D9qkFMnlXrzZVJXeAXJx8cBqVsihu/hWyubW8=" .empty .empty .empty true) }
   let (rt, _) := start.results [App.Msg.state { me := "alice", chats := [joining] }] 100
   write rt (dir / "joining.png")
+  -- Invite, after Listen heard that voucher played by Send by sound.
+  AppTests.air.clear
+  let r ← AppTests.state { AppTests.begin sent with rt := start } { me := "alice", chats := [joining, AppTests.chatWith "g" []] }
+  let r ← AppTests.click r "send-sound"
+  let r ← AppTests.click r "group:g"
+  let r ← AppTests.click r "invite"
+  let r ← AppTests.click r "listen"
+  write r.rt (dir / "heard.png")
   let r ← AppTests.state (AppTests.begin sent) { me := "alice", chats := [AppTests.chatWith "g" [AppTests.line 0 "a notice"]] }
   let r ← AppTests.click r "leave"
   write r.rt (dir / "dialog.png")
@@ -78,7 +86,7 @@ def conversation : IO (Option Chat) := do
   let net : Net := { cores := #["alice", "bob", "carol"].map fun me => { present := presentation, state := { me } } }
   let say (who : Nat) (text : String) : NetM Bool := do
     feed who (.send "friends" text)
-    runUntil world fun n => [0, 1, 2].all (says n · "friends" text)
+    runUntil world fun n => [0, 1, 2].all («says» n · "friends" text)
   let (ok, net) ← (do
     feed 0 (.create "friends" none)
     for who in [1, 2] do
