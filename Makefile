@@ -64,5 +64,5 @@ ANDROID_ABI ?= arm64-v8a
 
 apk:
 	lake exe cache get
-	APP=$(CURDIR) EXE=frank_chat ROOT=FrankChat.Main NAME=org.katzenpost.frank_chat LABEL=frank_chat PERMISSIONS=RECORD_AUDIO \
+	APP=$(CURDIR) EXE=frank_chat ROOT=FrankChat.Main NAME=org.katzenpost.frank_chat LABEL=frank_chat PERMISSIONS="RECORD_AUDIO CAMERA" \
 	  ANDROID_ABI=$(ANDROID_ABI) sh .lake/packages/paw/android/build.sh

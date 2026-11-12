@@ -67,10 +67,15 @@ def fakeAudio : Voice.Audio where
   -- Listening ends after 4 s of the loopback's silence, not 15.
   vouchers := { send := Sound.send air, listen := fun _ => Sound.listen air (pure false) 4000, stopListen := fun _ => pure () }
 
+/-- The camera of the fake devices, and scans over it that give up after a second. -/
+initialize shown : Drivers.Shown ← Drivers.Shown.new
+initialize scanner : Scan.Scanner ← Scan.Scanner.over shown (ms := 1000)
+
 def mkApp (sent : Sent) (phone : Bool := false) (me : String := "alice") : Paw.App App.caps :=
   let home := (testDir / "home").toString
   App.app (fun m => sent.modify (·.push m)) fakeAudio
     { state := { me }, network := "test", stateDir := testDir / "state", home, downloads := home, phone }
+    (camera := scanner)
 
 /-- A runtime, the outputs of its last step, and the time. -/
 structure Run (sent : Sent) (phone : Bool := false) where

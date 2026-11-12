@@ -3,12 +3,15 @@ SPDX-FileCopyrightText: Copyright (C) 2026 David Stainton
 SPDX-License-Identifier: AGPL-3.0-only
 -/
 
+import Qrcode
+import Camera
 import FrankChat.Sound
 
-/-! # Sound drivers for the tests
+/-! # Drivers for the tests
 
 A speaker and a microphone in memory, for `FrankChat.Sound`'s glue with no sound hardware: a
-loopback, which hears what was played and silence after it, and a noisy channel over it. -/
+loopback, which hears what was played and silence after it, and a noisy channel over it. And a
+camera in memory, for `FrankChat.Scan`'s, which shows frames made up. -/
 
 namespace FrankChat.Tests.Drivers
 
@@ -97,5 +100,43 @@ instance : AudioIn Noisy where
   start n := AudioIn.start n.inner
   next n := AudioIn.next n.inner
   stop n := AudioIn.stop n.inner
+
+/-- A camera in memory: shows its frames one by one, then none; `fail` makes starting fail. -/
+structure Shown where
+  frames : IO.Ref (List Camera.Frame)
+  log : IO.Ref (Array String)
+  fail : IO.Ref (Option String)
+  deriving Nonempty
+
+def Shown.new : IO Shown := return { frames := ← IO.mkRef [], log := ← IO.mkRef #[], fail := ← IO.mkRef none }
+
+def Shown.show (c : Shown) (fs : List Camera.Frame) : IO Unit := do
+  c.frames.set fs
+  c.log.set #[]
+  c.fail.set none
+
+instance : Camera.FrameSource Shown where
+  start c := do
+    if let some e ← c.fail.get then throw (IO.userError e)
+    c.log.modify (·.push "start")
+  next c ms := do
+    match ← c.frames.modifyGet fun fs => (fs.head?, fs.drop 1) with
+    | some f => return some f
+    | none => IO.sleep (min ms 10).toUInt32; return none
+  stop c := c.log.modify (·.push "stop")
+
+/-- A `w` × `h` frame of `f x y`. -/
+def frameOf (w h : Nat) (f : Nat → Nat → UInt8) : Camera.Frame :=
+  ⟨w, h, ⟨Array.ofFn fun (i : Fin (w * h)) => f (i % w) (i / w)⟩, by simp [ByteArray.size]⟩
+
+/-- `q` as a camera might see it: `scale` pixels to a module, dark 30 on light 220 give or take
+`noise`, with its quiet zone of 4 modules, its top left at (`x`, `y`) of a light `w` × `h` frame. -/
+def picture (q : Qrcode.QrCode) (w h scale x y : Nat) (noise : Nat := 0) : Camera.Frame :=
+  frameOf w h fun px py =>
+    let mx : Int := (px - x : Int) / scale - 4
+    let my : Int := (py - y : Int) / scale - 4
+    let dark := px ≥ x && py ≥ y && q.module mx my
+    let jitter : Int := if noise == 0 then 0 else ((px * 7919 + py * 104729) * 2654435761 / 65536 % (2 * noise + 1) : Nat) - (noise : Int)
+    (max 0 (min 255 ((if dark then 30 else 220) + jitter))).toNat.toUInt8
 
 end FrankChat.Tests.Drivers
