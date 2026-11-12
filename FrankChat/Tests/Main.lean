@@ -51,6 +51,8 @@ def main (args : List String) : IO UInt32 := do
   if let ["--fixture", dir] := args then
     Shot.fixture dir
     return 0
+  if let ["--camera", dev] := args then
+    return ← ScanTests.camera dev
   let mut ok := true
   for (name, t) in [("args", FrankChat.Tests.ArgsTests.tests), ("display", DisplayTests.tests),
       ("command", CommandTests.tests), ("state", StateTests.tests), ("app", AppTests.tests), ("members", Members.tests),

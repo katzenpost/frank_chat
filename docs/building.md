@@ -3,7 +3,7 @@
 frank_chat is Lean, with small Rust libraries underneath it: Paw's, for the window, one for the
 daemon's unix socket, [lean_os](https://github.com/katzenpost/lean_os), for saving the state to
 the disk whole, and [rustic_audio_lean](https://github.com/katzenpost/rustic_audio_lean), for
-voice notes. You need:
+voice notes; and the camera's drivers, C in `c/`. You need:
 
 - **Lean**, through [elan](https://github.com/leanprover/elan), which installs the toolchain
   named in `lean-toolchain` by itself.

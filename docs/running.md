@@ -52,8 +52,9 @@ else's. There are no accounts and no servers.
    voucher, and its code appears at the top of the conversation, as text and as a QR code, with
    **Copy** and **Send by sound**. It is also written to `voucher-NAME.txt` in Sam's state
    directory. Sam gives Alice the code out of band.
-3. Alice selects the group, clicks **Invite**, and pastes the code, or clicks **Listen** while
-   Sam clicks **Send by sound** nearby; both screens then show the same four check digits. The
+3. Alice selects the group, clicks **Invite**, and pastes the code, clicks **Scan QR code** and
+   holds Sam's screen up to her camera, or clicks **Listen** while Sam clicks **Send by sound**
+   nearby; both screens then show the same four check digits. The
    QR code and the sound are the ones hushphone and the T-Deck use. Whoever holds a code reads
    everything said in the group from then on, so she takes it only from the person she means to
    add.

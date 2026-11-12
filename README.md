@@ -33,7 +33,7 @@ On Android, frank_chat connects to a `kpclientd` on the phone at `127.0.0.1:6433
 [kpclientd-android](https://github.com/bfix/kpclientd-android).
 
 To join a group, click **Join a group** and give the voucher code it shows to a member, who
-pastes it under **Invite**.
+pastes it or scans its QR code under **Invite**.
 
 ## Documentation
 
@@ -49,13 +49,14 @@ pastes it under **Invite**.
 - [`FrankChat/App.lean`](FrankChat/App.lean): the window, drawn with [Paw](https://github.com/katzenpost/paw).
 - [`FrankChat/Command.lean`](FrankChat/Command.lean): what each action asks of the client core, [group_chat_client](https://github.com/katzenpost/group_chat_client).
 - [`FrankChat/Display.lean`](FrankChat/Display.lean), [`Presentation.lean`](FrankChat/Presentation.lean): what may reach the screen, and how it is worded.
-- [`FrankChat/Voucher.lean`](FrankChat/Voucher.lean), [`Sound.lean`](FrankChat/Sound.lean), [`Voice.lean`](FrankChat/Voice.lean): voucher codes as QR codes and by sound, and voice notes.
+- [`FrankChat/Voucher.lean`](FrankChat/Voucher.lean), [`Sound.lean`](FrankChat/Sound.lean), [`Scan.lean`](FrankChat/Scan.lean), [`Voice.lean`](FrankChat/Voice.lean): voucher codes as QR codes, by sound and by camera, and voice notes.
+- [`Camera.lean`](Camera.lean), [`Camera/Native.lean`](Camera/Native.lean), [`c/`](c): the camera as a source of grayscale frames, and its V4L2 and Android drivers.
 - [`FrankChat/Tests`](FrankChat/Tests), [`tests/e2e`](tests/e2e): the tests.
 - [`config/client.toml`](config/client.toml): `kpclientd`'s configuration for the namenlos mixnet.
 
 ## Status
 
-Version 0.4.2 in `lakefile.toml`; the latest release is v0.4.1, built reproducibly. The group
+Version 0.4.2 in `lakefile.lean`; the latest release is v0.4.1, built reproducibly. The group
 chat protocol is Cryptlib's katzenqt member state machine, with its proofs. frank_chat writes
 wire version 4 by default (`--wire-version 3` for the older map forms) and reads both.
 

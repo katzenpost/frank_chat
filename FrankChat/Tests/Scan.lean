@@ -4,6 +4,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 -/
 
 import FrankChat.Tests.Sound
+import Camera.Native
 
 /-! # Voucher codes by camera
 
@@ -168,6 +169,28 @@ def window : TestM Unit := do
   check "Scan QR code of origin other does nothing" r.rt.model.scanning.isNone
   let r ← other r (.looked 99 (.ok { sight := .voucher vector }))
   checkEq "what a scan stopped sees is dropped" "" ((r.rt.model.dialog.map (·.field)).getD "")
+
+/-- A scan of the camera `dev` as frank_chat runs it, for trying a camera by hand: what it saw. -/
+def camera (dev : String) : IO UInt32 := do
+  let s ← Scan.Scanner.over (← Camera.Native.Device.new dev) (ms := 20000)
+  let frames ← IO.mkRef 0
+  try
+    s.start 1
+    repeat
+      let l ← s.look 1
+      if let some img := l.preview then
+        if (← frames.modifyGet fun n => (n + 1, n + 1)) == 1 then IO.println s!"first frame, shown {img.w}×{img.h}"
+      match l.sight with
+      | .voucher v =>
+        IO.println s!"read a voucher code after {← frames.get} frames: {Voucher.code v}, check {Voucher.check v}"
+        return 0
+      | .other => IO.println "a QR code that holds no voucher code"
+      | .nothing => pure ()
+    return 1
+  catch e =>
+    IO.println s!"{e}, after {← frames.get} frames"
+    return 1
+  finally s.stop 1
 
 def tests : TestM Unit := do
   decode
