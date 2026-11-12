@@ -13,6 +13,7 @@ import FrankChat.Tests.Files
 import FrankChat.Tests.Voice
 import FrankChat.Tests.Phone
 import FrankChat.Tests.Sound
+import FrankChat.Tests.Scan
 import FrankChat.Args
 import FrankChat.Presentation
 
@@ -50,11 +51,13 @@ def main (args : List String) : IO UInt32 := do
   if let ["--fixture", dir] := args then
     Shot.fixture dir
     return 0
+  if let ["--camera", dev] := args then
+    return ← ScanTests.camera dev
   let mut ok := true
   for (name, t) in [("args", FrankChat.Tests.ArgsTests.tests), ("display", DisplayTests.tests),
       ("command", CommandTests.tests), ("state", StateTests.tests), ("app", AppTests.tests), ("members", Members.tests),
       ("files", FilesTests.tests), ("voice", VoiceTests.tests), ("phone", PhoneTests.tests),
-      ("sound", SoundTests.tests)] do
+      ("sound", SoundTests.tests), ("scan", ScanTests.tests)] do
     ok := (← runSuite name t) && ok
   -- Tasks of the shells may still be asleep; they would keep the process alive.
   IO.Process.exit (if ok then 0 else 1)

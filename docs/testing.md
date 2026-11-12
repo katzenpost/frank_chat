@@ -6,6 +6,7 @@
     make shots         # pictures of the window, drawn offscreen, in shots/
     make screenshot    # docs/screenshot.png, from a conversation over the simulated Pigeonhole
     make android-screenshot   # docs/android.png, the same conversation on an Android emulator
+    lake exe frank_chat_test --camera /dev/video0   # a scan of a camera, by hand: what it read
     N=5 DAEMON=@katzenpost sh tests/e2e/mixnet.sh   # N windows (2 to 8) in one group, against a running kpclientd
     ./test-integration.sh                       # the same over the docker mixnet
 

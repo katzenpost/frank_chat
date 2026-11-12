@@ -8,6 +8,7 @@ import FrankChat.Command
 import FrankChat.Display
 import FrankChat.Disk
 import FrankChat.Voice
+import FrankChat.Scan
 
 /-! # The window
 
@@ -30,7 +31,8 @@ frank_chat, not the sender, decides what each part of the window says:
   where they chose to save it; a picture received is shown from frank_chat's own copy.
 - The microphone records only while the user holds the Hold to talk button or Ctrl+Space, and what
   it recorded is sent only once they click Send. It listens for a voucher only after a click on
-  Listen, and what it heard goes only into the Invite dialog's field. -/
+  Listen, and what it heard goes only into the Invite dialog's field. The camera, likewise, only
+  after a click on Scan QR code, until it sees a voucher's code or Stop is clicked. -/
 
 namespace FrankChat.App
 
@@ -75,6 +77,8 @@ structure Dialog where
   line : Option Nat := none
   /-- What Listen is doing: listening, what it heard, or why not. -/
   heard : String := ""
+  /-- What Scan QR code is doing: scanning, what it saw, or why not. -/
+  seen : String := ""
   deriving BEq
 
 /-- A voice note being recorded, or recorded and not yet sent, for a group. -/
@@ -169,6 +173,11 @@ inductive Msg
   /-- Listen for a voucher code by sound, into the Invite dialog's field; again, stop. -/
   | listen
   | heard (listen : Nat) (r : Except String (Option ByteArray))
+  /-- Scan a voucher's QR code with the camera, into the Invite dialog's field; again, stop. -/
+  | scanQr
+  | scanStarted (scan : Nat) (r : Except String Unit)
+  | looked (scan : Nat) (r : Except String Scan.Look)
+  | cameraDone (r : Except String Unit)
 
 structure Model where
   state : State
@@ -216,6 +225,10 @@ structure Model where
   /-- The Listen under way, by its number, and how many there have been. -/
   listening : Option Nat := none
   listens : Nat := 0
+  /-- The scan under way, by its number, how many there have been, and its last frame. -/
+  scanning : Option Nat := none
+  scans : Nat := 0
+  preview : Option Image := none
   deriving Inhabited
 
 instance : BEq Model where
@@ -226,7 +239,8 @@ instance : BEq Model where
     a.lastDir == b.lastDir && a.pictures == b.pictures && a.voice == b.voice &&
     a.playing == b.playing && a.clock == b.clock && a.soundOff == b.soundOff &&
     a.phone == b.phone && a.menu == b.menu && a.sendingSound == b.sendingSound &&
-    a.listening == b.listening && a.listens == b.listens
+    a.listening == b.listening && a.listens == b.listens && a.scanning == b.scanning &&
+    a.scans == b.scans && a.preview == b.preview
 
 namespace Model
 
@@ -345,6 +359,22 @@ def stopListening {o : Origin} (audio : Voice.Audio) : UpdateM Model Msg caps o 
   modify fun (m, cs) => ({ m with listening := none, dialog := m.dialog.map ({ · with heard := "" }) }, cs)
   emit (.task (return .audioDone (← attempt (audio.vouchers.stopListen n))) (by decide))
 
+/-- Stop scanning, if Scan QR code is. -/
+def stopScanning {o : Origin} (camera : Scan.Scanner) : UpdateM Model Msg caps o Unit := do
+  let some n := (← get).1.scanning | return
+  modify fun (m, cs) => ({ m with scanning := none, preview := none, dialog := m.dialog.map ({ · with seen := "" }) }, cs)
+  emit (.task (return .cameraDone (← attempt (camera.stop n))) (by decide))
+
+def look {o : Origin} (camera : Scan.Scanner) (n : Nat) : UpdateM Model Msg caps o Unit :=
+  emit (.task (return .looked n (← attempt (camera.look n))) (by decide))
+
+/-- End scan `n` with `seen` said, letting the camera go. -/
+def endScan {o : Origin} (camera : Scan.Scanner) (n : Nat) (seen : String) (field : Option String := none) :
+    UpdateM Model Msg caps o Unit := do
+  let close (d : Dialog) := { d with seen, field := field.getD d.field }
+  modify fun (m, cs) => ({ m with scanning := none, preview := none, dialog := m.dialog.map close }, cs)
+  emit (.task (return .cameraDone (← attempt (camera.stop n))) (by decide))
+
 /-- Whether the sound system is to be polled: while recording or playing. -/
 def busy (m : Model) : Bool :=
   m.playing.isSome || match m.voice with | .recording .. => true | _ => false
@@ -356,7 +386,7 @@ def sendFile {o : Origin} (post : GroupChatKatzenqt1.Msg → IO Unit) (chat name
 /-- The path in the folder shown of the entry `name`. -/
 def inDir (d : Dialog) (name : String) : String := (System.FilePath.mk d.dir / name).toString
 
-def update (post : GroupChatKatzenqt1.Msg → IO Unit) (audio : Voice.Audio) :
+def update (post : GroupChatKatzenqt1.Msg → IO Unit) (audio : Voice.Audio) (camera : Scan.Scanner) :
     (o : Origin) → Msg → UpdateM Model Msg caps o Unit
   | _, .state s => do
     modify fun (m, cs) => (m.take s, cs)
@@ -486,11 +516,13 @@ def update (post : GroupChatKatzenqt1.Msg → IO Unit) (audio : Voice.Audio) :
       modify fun (m, cs) => ({ m with dialog := some { d with note := a.note } }, cs)
     else
       stopListening audio
+      stopScanning camera
       modify fun (m, cs) => ({ m with dialog := none }, cs)
       if let some (.rename old new) := a.msg then modify fun (m, cs) => (m.rename old new, cs)
       perform post a
   | _, .dismiss => do
     stopListening audio
+    stopScanning camera
     modify fun (m, cs) => ({ m with dialog := none }, cs)
   | .user d, .copyVoucher => do
     let some code := (← get).1.current.bind Model.voucher? | return
@@ -627,6 +659,44 @@ def update (post : GroupChatKatzenqt1.Msg → IO Unit) (audio : Voice.Audio) :
       | .ok none => { d with heard := "" }
       | .error e => { d with heard := s!"Not heard: {e}. Hold the devices closer and choose Listen again." }
     modify fun (m, cs) => ({ m with listening := none, dialog := some d }, cs)
+  | .user _, .scanQr => do
+    let m := (← get).1
+    let some d := m.dialog | return
+    if d.kind != .invite then return
+    if m.scanning.isSome then stopScanning camera; return
+    let n := m.scans + 1
+    modify fun (m, cs) =>
+      ({ m with scanning := some n, scans := n, preview := none, dialog := some { d with seen := "Starting the camera…" } }, cs)
+    emit (.task (return .scanStarted n (← attempt (camera.start n))) (by decide))
+  | .other, .scanQr => pure ()
+  | _, .scanStarted n r => do
+    -- A scan stopped while it started is stopped again, as the camera may have opened since.
+    if (← get).1.scanning != some n then
+      emit (.task (return .cameraDone (← attempt (camera.stop n))) (by decide))
+      return
+    match r with
+    | .ok () =>
+      modify fun (m, cs) => ({ m with dialog := m.dialog.map ({ · with seen := "Hold their QR code up to the camera." }) }, cs)
+      look camera n
+    | .error e => endScan camera n s!"Not scanned: {e}. Paste the code, or choose Listen."
+  | _, .looked n r => do
+    let m := (← get).1
+    if m.scanning != some n then return
+    match r with
+    | .ok { sight := .voucher v, .. } =>
+      endScan camera n (field := some (Voucher.code v))
+        s!"Scanned a voucher code, check {Voucher.check v}. If their screen shows the same, choose Invite."
+    | .ok l =>
+      let seen := match l.sight with
+        | .other => some "That QR code holds no voucher code."
+        | _ => none
+      let say (d : Dialog) := { d with seen := seen.getD d.seen }
+      modify fun (m, cs) => ({ m with preview := l.preview.orElse (fun _ => m.preview), dialog := m.dialog.map say }, cs)
+      look camera n
+    | .error e => endScan camera n s!"Not scanned: {e}. Hold the code closer and choose Scan QR code again, or paste it."
+  | _, .cameraDone r => match r with
+    | .ok () => pure ()
+    | .error e => note (Display.logLine e)
 
 /-! ## The view
 
@@ -911,10 +981,19 @@ def dialogView (m : Model) (d : Dialog) : Node Msg :=
     let listen := Ui.enabled m.soundOff.isNone
       (Ui.button (if m.listening.isSome then "Stop" else "Listen") .listen "listen")
     let heard := if d.heard.isEmpty then [] else [Ui.text (Display.text d.heard) (maxLines := 3) (key := "heard")]
+    let scan := Ui.button (if m.scanning.isSome then "Stop" else "Scan QR code") .scanQr "scan-qr"
+    let seen := if d.seen.isEmpty then [] else [Ui.text (Display.text d.seen) (maxLines := 3) (key := "seen")]
+    let preview := match m.preview, m.scanning with
+      | some img, some _ =>
+        let (w, h) := Disk.fit img.w img.h Scan.previewW Scan.previewH
+        [Ui.row [Ui.spacer, pictureView img w h (SafeText.trusted "what the camera sees") "scan-preview", Ui.spacer]]
+      | _, _ => []
     body s!"Invite to {group}"
       ([Ui.paragraph s!"Whoever holds this code will read everything said in {group} from now on.",
         field "voucher code",
-        Ui.row [listen, Ui.label "while their device sends it by sound, or paste it above"
+        Ui.row [scan, Ui.label "to read the QR code on their screen" (maxLines := 2) (tone := .muted)] (px 6)] ++
+        preview ++ seen ++
+       [Ui.row [listen, Ui.label "while their device sends it by sound, or paste it above"
           (maxLines := 2) (tone := .muted)] (px 6)] ++ heard) "Invite" .main
   | .remove =>
     let others := ((m.state.chat? (d.chat.getD "")).map (Display.members m.state.me ·)).getD [] |>.drop 1
@@ -980,7 +1059,7 @@ def view (m : Model) : Node Msg :=
     [rule, statusBar m] ++ (m.dialog.toList.map (dialogView m))) 0
 
 def app (post : GroupChatKatzenqt1.Msg → IO Unit) (audio : Voice.Audio) (init : Model)
-    (start : List (Cmd Msg caps .other) := []) : App caps :=
-  { Model := Model, Msg := Msg, init := { init with soundOff := audio.off }, update := update post audio, view, start }
+    (start : List (Cmd Msg caps .other) := []) (camera : Scan.Scanner := .silent "no camera") : App caps :=
+  { Model := Model, Msg := Msg, init := { init with soundOff := audio.off }, update := update post audio camera, view, start }
 
 end FrankChat.App

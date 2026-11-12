@@ -7,6 +7,7 @@ import Paw.Linux
 import FrankChat.App
 import FrankChat.Presentation
 import FrankChat.Args
+import Camera.Native
 import GroupChatClient.LogPane
 import GroupChatClient.GroupChatKatzenqt1.Daemon
 import GroupChatClient.GroupChatKatzenqt1.Shell
@@ -127,9 +128,10 @@ where
   let base : App.Model := { state, dark, zone, stateDir := dir, home, downloads, phone := Paw.Linux.onAndroid }
   let audio ← Voice.Audio.open (dir / "audio" / "drafts") (Paw.Linux.permission "android.permission.RECORD_AUDIO")
   if let some why := audio.off then log.warning why
+  let camera ← Scan.Scanner.over (← Camera.Native.Device.new) (Paw.Linux.permission "android.permission.CAMERA")
   if cfg.offline then
     let init := App.Model.take { base with network := "offline" } state
-    try Paw.Linux.run (App.app (fun _ => pure ()) audio init) title 1000 700 describe
+    try Paw.Linux.run (App.app (fun _ => pure ()) audio init (camera := camera)) title 1000 700 describe
     finally audio.cancel
     IO.Process.exit 0
   IO.println s!"connecting to the client daemon at {cfg.daemon}"
@@ -149,7 +151,7 @@ where
   let network := s!"daemon {cfg.daemon}"
   let init := App.Model.take { base with state := core.state, network, logs } core.state
   try
-    Paw.Linux.run (App.app post audio init [.producer producer (by decide)]) title 1000 700 describe
+    Paw.Linux.run (App.app post audio init [.producer producer (by decide)] camera) title 1000 700 describe
   finally
     audio.cancel
     showLogs.set fun _ => pure ()

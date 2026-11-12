@@ -7,6 +7,7 @@ import Paw.Linux
 import FrankChat.Tests.App
 import FrankChat.Tests.Files
 import FrankChat.Tests.Voice
+import FrankChat.Tests.Scan
 
 /-! # Pictures of the window
 
@@ -45,6 +46,15 @@ def shots (dir : System.FilePath) : IO Unit := do
   let r ← AppTests.click r "invite"
   let r ← AppTests.click r "listen"
   write r.rt (dir / "heard.png")
+  -- Invite, scanning, as a voucher's QR code comes into the camera's view.
+  let r ← AppTests.state { AppTests.begin sent with rt := start } { me := "alice", chats := [AppTests.chatWith "g" []] }
+  let r ← AppTests.click r "invite"
+  if let some q := Voucher.qr? "8so/D+D9qkFMnlXrzZVJXeAXJx8cBqVsihu/hWyubW8=" then
+    AppTests.shown.show [Drivers.picture q 640 480 5 470 140 (noise := 10)]
+  let r ← ScanTests.once (← ScanTests.once (← ScanTests.tap r "scan-qr"))
+  write r.rt (dir / "scanning.png")
+  -- Stopped after the picture is drawn: the run holds the frame shown until then.
+  discard <| AppTests.click r "scan-qr"
   let r ← AppTests.state (AppTests.begin sent) { me := "alice", chats := [AppTests.chatWith "g" [AppTests.line 0 "a notice"]] }
   let r ← AppTests.click r "leave"
   write r.rt (dir / "dialog.png")

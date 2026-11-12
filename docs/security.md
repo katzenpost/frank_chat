@@ -21,7 +21,9 @@ everything another member sends is untrusted.
   the list, by key. Copy writes the clipboard only for a click on it. A file is read only once
   you choose it and click Send, and one received is written outside the state directory only where
   you save it, never over a file already there. The microphone records only while you hold Hold
-  to talk or Ctrl+Space, and what it recorded leaves only when you click Send. frank_chat asks for the
+  to talk or Ctrl+Space, and what it recorded leaves only when you click Send. The camera is on only
+  from a click on Scan QR code until it reads a voucher code or you click Stop, and what it read
+  goes only into the Invite dialog's field. frank_chat asks for the
   clipboard and for running tasks, and for nothing else: no links, no notifications. The window's
   title is always "frank_chat".
 - **Pictures.** A picture received is decoded by Paw, which takes only PNG and JPEG and refuses one
