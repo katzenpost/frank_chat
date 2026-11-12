@@ -8,8 +8,9 @@ import Camera.Native
 
 /-! # Voucher codes by camera
 
-The decode path end to end, from the QR code one frank_chat draws to the voucher another reads;
-the scan glue over a camera in memory; and Scan QR code in the Invite dialog. -/
+The decode path end to end, from the QR code one frank_chat draws to the voucher another reads,
+and qrcode-lean's voucher images; the scan glue over a camera in memory; and Scan QR code in the
+Invite dialog. -/
 
 namespace FrankChat.Tests.ScanTests
 
@@ -85,6 +86,45 @@ def glue : TestM Unit := do
   checkEq "and does not start it" #[] (← cam.log.get)
   cam.fail.set (some "/dev/video0: No such file or directory")
   checkEq "with no camera, the driver's reason" "/dev/video0: No such file or directory" (← errorOf (s.start 5))
+
+/-- qrcode-lean's images of a voucher's QR code, which the decoder's tests read too. -/
+def images : System.FilePath := ".lake/packages/qrcode/tests/vectors/decode"
+def imagesCode : String := "cvV8Q1uGC31DYm4pNGXfCg8ihJA1Pj7sYkyK/eBIP28="
+
+/-- An 8-bit binary PGM. -/
+def readPgm (path : System.FilePath) : IO Camera.Frame := do
+  let b ← IO.FS.readBinFile path
+  let ws (c : UInt8) := c == 32 || c == 10 || c == 13 || c == 9
+  -- The four fields of the header, then one whitespace byte before the pixels.
+  let mut fields : Array String := #[]
+  let mut i := 0
+  while fields.size < 4 && i < b.size do
+    while i < b.size && ws b[i]! do i := i + 1
+    let start := i
+    while i < b.size && !ws b[i]! do i := i + 1
+    fields := fields.push (String.fromUTF8! (b.extract start i))
+  let (some w, some h) := (fields[1]?.bind (·.toNat?), fields[2]?.bind (·.toNat?))
+    | throw (IO.userError s!"{path}: not a PGM")
+  let some f := Camera.Frame.of? w h (b.extract (i + 1) b.size)
+    | throw (IO.userError s!"{path}: not {w}×{h} bytes")
+  return f
+
+/-- Each of qrcode-lean's voucher images, shown to the camera after a frame with none, is read by
+the scan; the version 8 symbol holds no voucher code. -/
+def vectors : TestM Unit := do
+  let cam ← Shown.new
+  let s ← Scan.Scanner.over cam (ms := 5000)
+  let v := (Voucher.bytes? imagesCode).getD .empty
+  for (name, n) in ["clean", "small", "rotated", "upside-down", "perspective", "noisy", "mirrored"].zipIdx do
+    cam.show [blank, ← readPgm (images / s!"{name}.pgm")]
+    s.start (n + 1)
+    let first ← s.look (n + 1)
+    let second ← s.look (n + 1)
+    check s!"qrcode-lean's {name} voucher image is scanned" (isNothing first.sight && isVoucher v second.sight)
+  cam.show [← readPgm (images / "version8.pgm")]
+  s.start 99
+  check "and its version 8 symbol is no voucher" (isOther (← s.look 99).sight)
+  s.stop 99
 
 variable {sent : Sent}
 
@@ -194,6 +234,7 @@ def camera (dev : String) : IO UInt32 := do
 
 def tests : TestM Unit := do
   decode
+  vectors
   glue
   window
 

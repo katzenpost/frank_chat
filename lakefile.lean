@@ -17,7 +17,8 @@ require group_chat_client from git
 -- katzenpost/rustic_audio_lean#4: raw samples, for ggwave.
 require rustic_audio_lean from git
   "https://github.com/katzenpost/rustic_audio_lean.git" @ "e91452fd65a05ba567766410daa735f058ad339d"
-require qrcode from git "https://github.com/katzenpost/qrcode-lean.git" @ "ba0231d23ce193d7230cfdb0d5e9eb81e27f5cf2"
+-- katzenpost/qrcode-lean#3: the decoder.
+require qrcode from git "https://github.com/katzenpost/qrcode-lean.git" @ "9c1e7a6b50f2c87e464875d4a240530166fdd6e9"
 -- katzenpost/ggwave-lean#1.
 require ggwave from git "https://github.com/katzenpost/ggwave-lean.git" @ "86a3310e45c17e56f0179512ead7fc5b8af17f0d"
 -- Last, so that its pin wins over the older ones its dependents carry.

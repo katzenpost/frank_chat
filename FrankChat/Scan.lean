@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 import Std.Sync.Mutex
 import Paw
 import Camera
-import FrankChat.Stub.QrDecode
+import Qrcode.Decode
 import FrankChat.Sound
 import FrankChat.Voucher
 
