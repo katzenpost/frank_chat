@@ -10,7 +10,7 @@ package frank_chat where
 
 require paw from git "https://github.com/katzenpost/paw.git" @ "v0.3.0"
 require Logger from git "https://github.com/katzenpost/Logger.git" @ "51313822f6db9ff091f3b2a3e6298e1066ebea5d"
-require thinclient from git "https://github.com/katzenpost/thin_client.git" @ "98ff985ad348156eccbe7d3f4c4849a47041f2d3"
+require thinclient from git "https://github.com/katzenpost/thin_client.git" @ "a973a7033304cb5b901598685ab6bda7509e8fd5"
 require lean_unix_socket from git "https://github.com/katzenpost/lean_unix_socket.git" @ "v0.1.0"
 require group_chat_client from git
   "https://github.com/katzenpost/group_chat_client.git" @ "001196f63f168f5fe82703584d934be682ea8b2f"
@@ -22,7 +22,7 @@ require qrcode from git "https://github.com/katzenpost/qrcode-lean.git" @ "9c1e7
 -- katzenpost/ggwave-lean#1.
 require ggwave from git "https://github.com/katzenpost/ggwave-lean.git" @ "86a3310e45c17e56f0179512ead7fc5b8af17f0d"
 -- Last, so that its pin wins over the older ones its dependents carry.
-require cryptlib from git "https://github.com/katzenpost/cryptlib.git" @ "6d8c31e81fc187f24c80257f5a96689d3ba0fc5e"
+require cryptlib from git "https://github.com/katzenpost/cryptlib.git" @ "06fb4633c5c4e9ab3d0741ffe1e45ee930e68780"
 
 /-- The camera's drivers, `Camera.Native`: C in `c/`. Here V4L2's; Paw's Android build compiles
 `c/` itself, where only the NDK's driver is not empty. -/
