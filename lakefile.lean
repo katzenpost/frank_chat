@@ -22,7 +22,7 @@ require qrcode from git "https://github.com/katzenpost/qrcode-lean.git" @ "9c1e7
 -- katzenpost/ggwave-lean#1.
 require ggwave from git "https://github.com/katzenpost/ggwave-lean.git" @ "86a3310e45c17e56f0179512ead7fc5b8af17f0d"
 -- Last, so that its pin wins over the older ones its dependents carry.
-require cryptlib from git "https://github.com/katzenpost/cryptlib.git" @ "6d8c31e81fc187f24c80257f5a96689d3ba0fc5e"
+require cryptlib from git "https://github.com/katzenpost/cryptlib.git" @ "06fb4633c5c4e9ab3d0741ffe1e45ee930e68780"
 
 /-- The camera's drivers, `Camera.Native`: C in `c/`. Here V4L2's; Paw's Android build compiles
 `c/` itself, where only the NDK's driver is not empty. -/
