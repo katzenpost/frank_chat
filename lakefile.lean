@@ -10,7 +10,7 @@ package frank_chat where
 
 require paw from git "https://github.com/katzenpost/paw.git" @ "v0.3.0"
 require Logger from git "https://github.com/katzenpost/Logger.git" @ "51313822f6db9ff091f3b2a3e6298e1066ebea5d"
-require thinclient from git "https://github.com/katzenpost/thin_client.git" @ "98ff985ad348156eccbe7d3f4c4849a47041f2d3"
+require thinclient from git "https://github.com/katzenpost/thin_client.git" @ "a973a7033304cb5b901598685ab6bda7509e8fd5"
 require lean_unix_socket from git "https://github.com/katzenpost/lean_unix_socket.git" @ "v0.1.0"
 require group_chat_client from git
   "https://github.com/katzenpost/group_chat_client.git" @ "001196f63f168f5fe82703584d934be682ea8b2f"
